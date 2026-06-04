@@ -21,7 +21,7 @@ permissions:
 
 env:
   SNAPSHOT_ID: "${{ github.event.pull_request.number }}"
-  CH_IMAGE: ghcr.io/containerhive/containerhive:3822b2c
+  CH_IMAGE: ghcr.io/containerhive/containerhive:a6dba15
 
 jobs:
   # === GENERATE ===
@@ -55,7 +55,7 @@ jobs:
         with:
           lfs: true
       - name: Lint Dockerfiles
-        run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" $CH_IMAGE ch -p github lint
+        run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" $CH_IMAGE ch -p github lint --format github-actions
 
   # === BASE-CI ===
 
@@ -63,6 +63,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - generate
+      - lint
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -78,7 +79,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.28.1 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.30.0 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -100,6 +101,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs:
       - generate
+      - lint
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -115,7 +117,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.28.1 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.30.0 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -208,6 +210,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - generate
+      - lint
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -223,7 +226,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.28.1 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.30.0 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -245,6 +248,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs:
       - generate
+      - lint
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -260,7 +264,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.28.1 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.30.0 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -353,6 +357,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - generate
+      - lint
       - manifest-base-deployment
     steps:
       - name: Checkout code
@@ -369,7 +374,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.28.1 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.30.0 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -460,6 +465,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - generate
+      - lint
       - manifest-base-ci
     steps:
       - name: Checkout code
@@ -476,7 +482,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.28.1 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.30.0 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
