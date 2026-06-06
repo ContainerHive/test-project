@@ -21,7 +21,7 @@ permissions:
 
 env:
   SNAPSHOT_ID: "${{ github.event.pull_request.number }}"
-  CH_IMAGE: ghcr.io/containerhive/containerhive:a6dba15
+  CH_IMAGE: ghcr.io/containerhive/containerhive:ee7d8d2
 
 jobs:
   # === GENERATE ===
@@ -41,7 +41,7 @@ jobs:
       - name: Generate build files
         run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" $CH_IMAGE ch -p github generate --build-id "$SNAPSHOT_ID"
       - name: Upload generated files
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: generated
           path: github/dist/
@@ -70,7 +70,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -91,7 +91,7 @@ jobs:
       - name: Generate SBOM
         run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github sbom base-ci --platform amd64 --build-id "$SNAPSHOT_ID"
       - name: Upload SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: base-ci-amd64-sbom
           path: github/dist/*/*/*/cyclonedx.json
@@ -108,7 +108,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -129,7 +129,7 @@ jobs:
       - name: Generate SBOM
         run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github sbom base-ci --platform arm64 --build-id "$SNAPSHOT_ID"
       - name: Upload SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: base-ci-arm64-sbom
           path: github/dist/*/*/*/cyclonedx.json
@@ -148,7 +148,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -172,7 +172,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -217,7 +217,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -238,7 +238,7 @@ jobs:
       - name: Generate SBOM
         run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github sbom base-deployment --platform amd64 --build-id "$SNAPSHOT_ID"
       - name: Upload SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: base-deployment-amd64-sbom
           path: github/dist/*/*/*/cyclonedx.json
@@ -255,7 +255,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -276,7 +276,7 @@ jobs:
       - name: Generate SBOM
         run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github sbom base-deployment --platform arm64 --build-id "$SNAPSHOT_ID"
       - name: Upload SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: base-deployment-arm64-sbom
           path: github/dist/*/*/*/cyclonedx.json
@@ -295,7 +295,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -319,7 +319,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -365,7 +365,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -386,7 +386,7 @@ jobs:
       - name: Generate SBOM
         run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github sbom dotnet-runtime --platform amd64 --build-id "$SNAPSHOT_ID"
       - name: Upload SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: dotnet-runtime-amd64-sbom
           path: github/dist/*/*/*/cyclonedx.json
@@ -404,7 +404,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -427,7 +427,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -473,7 +473,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -494,7 +494,7 @@ jobs:
       - name: Generate SBOM
         run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github sbom go-ci --platform amd64 --build-id "$SNAPSHOT_ID"
       - name: Upload SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: go-ci-amd64-sbom
           path: github/dist/*/*/*/cyclonedx.json
@@ -512,7 +512,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -535,7 +535,7 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
@@ -582,37 +582,37 @@ jobs:
         with:
           lfs: true
       - name: Download generated files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: generated
           path: github/dist/
       - name: Download base-ci-amd64 SBOM
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: base-ci-amd64-sbom
           path: github/dist/
       - name: Download base-ci-arm64 SBOM
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: base-ci-arm64-sbom
           path: github/dist/
       - name: Download base-deployment-amd64 SBOM
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: base-deployment-amd64-sbom
           path: github/dist/
       - name: Download base-deployment-arm64 SBOM
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: base-deployment-arm64-sbom
           path: github/dist/
       - name: Download dotnet-runtime-amd64 SBOM
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: dotnet-runtime-amd64-sbom
           path: github/dist/
       - name: Download go-ci-amd64 SBOM
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: go-ci-amd64-sbom
           path: github/dist/
@@ -633,5 +633,5 @@ jobs:
         with:
           path: public/
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
