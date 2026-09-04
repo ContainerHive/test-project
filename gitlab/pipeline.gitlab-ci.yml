@@ -30,7 +30,7 @@ before_script:
 
 .build:
   image:
-    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
+    name: ghcr.io/containerhive/containerhive:06d3120
     entrypoint: [""]
   services:
     - name: moby/buildkit:v0.31.0
@@ -51,14 +51,14 @@ before_script:
 
 .manifest:
   image:
-    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
+    name: ghcr.io/containerhive/containerhive:06d3120
     entrypoint: [""]
   script:
     - ch -p gitlab finalize ${IMAGE_NAME} --build-id "$SNAPSHOT_ID"
 
 .test:
   image:
-    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
+    name: ghcr.io/containerhive/containerhive:06d3120
     entrypoint: [""]
   services:
     - name: docker:dind
@@ -73,7 +73,7 @@ before_script:
 # === GENERATE ===
 generate:
   image:
-    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
+    name: ghcr.io/containerhive/containerhive:06d3120
     entrypoint: [""]
   stage: generate
   script:
@@ -88,7 +88,7 @@ lint:
   needs:
     - generate
   image:
-    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
+    name: ghcr.io/containerhive/containerhive:06d3120
     entrypoint: [""]
   script:
     - ch -p gitlab lint --format codeclimate=gl-code-quality-report.json
@@ -308,7 +308,7 @@ test-go-ci:
 
 report:
   image:
-    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
+    name: ghcr.io/containerhive/containerhive:06d3120
     entrypoint: [""]
   stage: report
   needs:
