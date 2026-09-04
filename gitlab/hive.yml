@@ -4,3 +4,7 @@ registry:
 cache:
   type: registry
   ref: registry.gitlab.com/containerhive/test-project/cache
+
+template_options:
+  ci_build_shards: "2"
+  ci_test_shards: "2"

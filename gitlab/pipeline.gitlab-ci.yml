@@ -30,10 +30,10 @@ before_script:
 
 .build:
   image:
-    name: ghcr.io/containerhive/containerhive:ee7d8d2
+    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
     entrypoint: [""]
   services:
-    - name: moby/buildkit:v0.30.0
+    - name: moby/buildkit:v0.31.0
       alias: buildkitd
       command: ["--addr", "tcp://0.0.0.0:8372"]
   variables:
@@ -51,14 +51,14 @@ before_script:
 
 .manifest:
   image:
-    name: ghcr.io/containerhive/containerhive:ee7d8d2
+    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
     entrypoint: [""]
   script:
     - ch -p gitlab finalize ${IMAGE_NAME} --build-id "$SNAPSHOT_ID"
 
 .test:
   image:
-    name: ghcr.io/containerhive/containerhive:ee7d8d2
+    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
     entrypoint: [""]
   services:
     - name: docker:dind
@@ -73,7 +73,7 @@ before_script:
 # === GENERATE ===
 generate:
   image:
-    name: ghcr.io/containerhive/containerhive:ee7d8d2
+    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
     entrypoint: [""]
   stage: generate
   script:
@@ -88,7 +88,7 @@ lint:
   needs:
     - generate
   image:
-    name: ghcr.io/containerhive/containerhive:ee7d8d2
+    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
     entrypoint: [""]
   script:
     - ch -p gitlab lint --format codeclimate=gl-code-quality-report.json
@@ -105,6 +105,7 @@ build-base-ci-amd64:
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: amd64
+  parallel: 2
   needs:
     - generate
   artifacts:
@@ -119,6 +120,7 @@ build-base-ci-arm64:
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: arm64
+  parallel: 2
   needs:
     - generate
   artifacts:
@@ -144,6 +146,7 @@ test-base-ci:
   stage: test-base-ci
   variables:
     IMAGE_NAME: base-ci
+  parallel: 2
   needs:
     - generate
     - build-base-ci-amd64
@@ -162,6 +165,7 @@ build-base-deployment-amd64:
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: amd64
+  parallel: 2
   needs:
     - generate
   artifacts:
@@ -176,6 +180,7 @@ build-base-deployment-arm64:
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: arm64
+  parallel: 2
   needs:
     - generate
   artifacts:
@@ -201,6 +206,7 @@ test-base-deployment:
   stage: test-base-deployment
   variables:
     IMAGE_NAME: base-deployment
+  parallel: 2
   needs:
     - generate
     - build-base-deployment-amd64
@@ -219,6 +225,7 @@ build-dotnet-runtime-amd64:
   variables:
     IMAGE_NAME: dotnet-runtime
     PLATFORM: amd64
+  parallel: 2
   needs:
     - generate
     - manifest-base-deployment
@@ -244,6 +251,7 @@ test-dotnet-runtime:
   stage: test-dotnet-runtime
   variables:
     IMAGE_NAME: dotnet-runtime
+  parallel: 2
   needs:
     - generate
     - build-dotnet-runtime-amd64
@@ -261,6 +269,7 @@ build-go-ci-amd64:
   variables:
     IMAGE_NAME: go-ci
     PLATFORM: amd64
+  parallel: 2
   needs:
     - generate
     - manifest-base-ci
@@ -286,6 +295,7 @@ test-go-ci:
   stage: test-go-ci
   variables:
     IMAGE_NAME: go-ci
+  parallel: 2
   needs:
     - generate
     - build-go-ci-amd64
@@ -298,7 +308,7 @@ test-go-ci:
 
 report:
   image:
-    name: ghcr.io/containerhive/containerhive:ee7d8d2
+    name: ghcr.io/containerhive/containerhive:feat-shard-queue-commands
     entrypoint: [""]
   stage: report
   needs:
