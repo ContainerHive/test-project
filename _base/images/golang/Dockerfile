@@ -1,0 +1,3 @@
+FROM scratch
+ARG GOLANG_VERSION
+LABEL golang.version="${GOLANG_VERSION}"

@@ -1,0 +1,23 @@
+description: "Minimal image proving tag_ranges resolves the latest Go version straight from go.dev's release feed."
+
+tag_ranges:
+  - tag_name: "{{.full}}"
+    source:
+      type: json
+      url: "https://go.dev/dl/?mode=json"
+      transform: |
+        $[stable = true].{
+          "version": $substring(version, 2)
+        }
+    select:
+      major: { last: 1 }
+      minor: { last: 1 }
+      patch: { last: 1 }
+    versions:
+      golang: "{{.full}}"
+
+report:
+  icon: "devicon-go-original-wordmark"
+
+platforms:
+  - linux/amd64
