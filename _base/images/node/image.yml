@@ -1,0 +1,19 @@
+description: "Minimal image proving tag_ranges resolves the latest Node.js version straight from Docker Hub."
+
+tag_ranges:
+  - tag_name: "{{.full}}"
+    source:
+      type: dockerhub
+      image: library/node
+    select:
+      major: { last: 1 }
+      minor: { last: 1 }
+      patch: { last: 1 }
+    versions:
+      nodejs: "{{.full}}"
+
+report:
+  icon: "devicon-nodejs-plain"
+
+platforms:
+  - linux/amd64

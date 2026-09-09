@@ -1,0 +1,3 @@
+FROM scratch
+ARG NODEJS_VERSION
+LABEL nodejs.version="${NODEJS_VERSION}"
