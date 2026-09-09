@@ -1,0 +1,3 @@
+FROM scratch
+ARG DETERMINISTIC_ZIP_VERSION
+LABEL deterministic-zip.version="${DETERMINISTIC_ZIP_VERSION}"

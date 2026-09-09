@@ -1,0 +1,19 @@
+description: "Minimal image proving tag_ranges resolves the latest release from a GitHub repository."
+
+tag_ranges:
+  - tag_name: "{{.full}}"
+    source:
+      type: github
+      repo: timo-reymann/deterministic-zip
+    select:
+      major: { last: 1 }
+      minor: { last: 1 }
+      patch: { last: 1 }
+    versions:
+      deterministic-zip: "{{.full}}"
+
+report:
+  icon: "devicon-github-original"
+
+platforms:
+  - linux/amd64
