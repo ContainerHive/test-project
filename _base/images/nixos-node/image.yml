@@ -1,0 +1,14 @@
+description: "Minimal image proving the nix build backend with busybox and Node.js from nixpkgs."
+build: nix
+
+config:
+  entrypoint: ["/bin/node"]
+
+tags:
+  - name: v1
+
+report:
+  icon: "devicon-nixos-plain"
+
+platforms:
+  - linux/amd64
