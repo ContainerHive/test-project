@@ -8,5 +8,5 @@ If you are looking for ContainerHive, please visit the [official repository](htt
 
 ## Links
 
-- [GitHub](https://github.com/ContainerHive/ContainerHive-test-project)
+- [GitHub](https://github.com/ContainerHive/test-project)
 - [GitLab](https://gitlab.com/ContainerHive/test-project)
