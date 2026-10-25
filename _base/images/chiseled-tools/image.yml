@@ -1,0 +1,8 @@
+description: "Chiseled Ubuntu image with bash, curl, CA certificates and timezone data."
+build: chisel
+
+tags:
+  - name: v1
+
+config:
+  cmd: ["/bin/bash"]

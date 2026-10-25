@@ -1,0 +1,8 @@
+release: ubuntu-24.04
+slices:
+  - base-files_base
+  - base-files_release-info
+  - bash_bins
+  - ca-certificates_data
+  - curl_bins
+  - tzdata_zoneinfo
