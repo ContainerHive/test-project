@@ -53,7 +53,7 @@ before_script:
 
 .build:
   image:
-    name: ghcr.io/containerhive/containerhive:ea01911
+    name: ghcr.io/containerhive/containerhive:35f8ecd
     entrypoint: [""]
   services:
     - name: moby/buildkit:v0.34.0
@@ -80,7 +80,7 @@ before_script:
 
 .manifest:
   image:
-    name: ghcr.io/containerhive/containerhive:ea01911
+    name: ghcr.io/containerhive/containerhive:35f8ecd
     entrypoint: [""]
   cache:
     key: ch-versions
@@ -94,11 +94,12 @@ before_script:
 
 .test:
   image:
-    name: ghcr.io/containerhive/containerhive:ea01911
+    name: ghcr.io/containerhive/containerhive:35f8ecd
     entrypoint: [""]
   services:
-    - name: docker:dind
+    - name: ghcr.io/containerhive/helper-images/dind-rootless:29.9
       alias: dind
+      command: ["dockerd", "--host=tcp://0.0.0.0:2375"]
   cache:
     key: ch-versions
     paths:
@@ -122,7 +123,7 @@ before_script:
 # === GENERATE ===
 generate:
   image:
-    name: ghcr.io/containerhive/containerhive:ea01911
+    name: ghcr.io/containerhive/containerhive:35f8ecd
     entrypoint: [""]
   stage: generate
   cache:
@@ -144,7 +145,7 @@ lint:
   needs:
     - generate
   image:
-    name: ghcr.io/containerhive/containerhive:ea01911
+    name: ghcr.io/containerhive/containerhive:35f8ecd
     entrypoint: [""]
   cache:
     key: ch-versions
@@ -640,7 +641,7 @@ test-go-ci-amd64:
 
 report:
   image:
-    name: ghcr.io/containerhive/containerhive:ea01911
+    name: ghcr.io/containerhive/containerhive:35f8ecd
     entrypoint: [""]
   stage: report
   cache:
