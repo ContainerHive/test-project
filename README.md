@@ -10,3 +10,5 @@ If you are looking for ContainerHive, please visit the [official repository](htt
 
 - [GitHub](https://github.com/ContainerHive/test-project)
 - [GitLab](https://gitlab.com/ContainerHive/test-project)
+
+# change detection test: test/change-detection-docs
