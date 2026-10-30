@@ -9,3 +9,5 @@ RUN apt-get update \
         gzip \
         xz-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# change detection test: test/change-detection-cascade
