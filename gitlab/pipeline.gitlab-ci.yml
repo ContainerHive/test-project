@@ -12,33 +12,15 @@ default:
 stages:
   - generate
   - lint
-  - build-base-ci
-  - test-base-ci
-  - manifest-base-ci
-  - build-base-deployment
-  - test-base-deployment
-  - manifest-base-deployment
-  - build-chiseled-tools
-  - test-chiseled-tools
-  - manifest-chiseled-tools
-  - build-deterministic-zip
-  - test-deterministic-zip
-  - manifest-deterministic-zip
-  - build-golang
-  - test-golang
-  - manifest-golang
-  - build-nixos-node
-  - test-nixos-node
-  - manifest-nixos-node
-  - build-node
-  - test-node
-  - manifest-node
-  - build-dotnet-runtime
-  - test-dotnet-runtime
-  - manifest-dotnet-runtime
-  - build-go-ci
-  - test-go-ci
-  - manifest-go-ci
+  - base-ci
+  - base-deployment
+  - chiseled-tools
+  - deterministic-zip
+  - golang
+  - nixos-node
+  - node
+  - dotnet-runtime
+  - go-ci
   - report
   - pages
 
@@ -53,7 +35,7 @@ before_script:
 
 .build:
   image:
-    name: ghcr.io/containerhive/containerhive:b12c66d
+    name: ghcr.io/containerhive/containerhive:0206629
     entrypoint: [""]
   services:
     - name: ghcr.io/containerhive/helper-images/buildkit:v0.34
@@ -80,7 +62,7 @@ before_script:
 
 .manifest:
   image:
-    name: ghcr.io/containerhive/containerhive:b12c66d
+    name: ghcr.io/containerhive/containerhive:0206629
     entrypoint: [""]
   cache:
     key: ch-versions
@@ -94,7 +76,7 @@ before_script:
 
 .test:
   image:
-    name: ghcr.io/containerhive/containerhive:b12c66d
+    name: ghcr.io/containerhive/containerhive:0206629
     entrypoint: [""]
   services:
     - name: ghcr.io/containerhive/helper-images/dind-rootless:29.9
@@ -123,7 +105,7 @@ before_script:
 # === GENERATE ===
 generate:
   image:
-    name: ghcr.io/containerhive/containerhive:b12c66d
+    name: ghcr.io/containerhive/containerhive:0206629
     entrypoint: [""]
   stage: generate
   cache:
@@ -153,7 +135,7 @@ lint:
   needs:
     - generate
   image:
-    name: ghcr.io/containerhive/containerhive:b12c66d
+    name: ghcr.io/containerhive/containerhive:0206629
     entrypoint: [""]
   cache:
     key: ch-versions
@@ -173,7 +155,7 @@ lint:
 
 build-base-ci-amd64:
   extends: .build-amd64
-  stage: build-base-ci
+  stage: base-ci
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -187,7 +169,9 @@ build-base-ci-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: amd64
@@ -201,7 +185,7 @@ build-base-ci-amd64:
 
 build-base-ci-arm64:
   extends: .build-arm64
-  stage: build-base-ci
+  stage: base-ci
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -215,7 +199,9 @@ build-base-ci-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: arm64
@@ -230,7 +216,7 @@ build-base-ci-arm64:
 
 manifest-base-ci:
   extends: .manifest
-  stage: manifest-base-ci
+  stage: base-ci
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -244,7 +230,9 @@ manifest-base-ci:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-ci
   needs:
@@ -256,7 +244,7 @@ manifest-base-ci:
 
 test-base-ci-amd64:
   extends: .test-amd64
-  stage: test-base-ci
+  stage: base-ci
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -270,7 +258,9 @@ test-base-ci-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: amd64
@@ -285,7 +275,7 @@ test-base-ci-amd64:
       junit: gitlab/dist/**/*-cst-report.xml
 test-base-ci-arm64:
   extends: .test-arm64
-  stage: test-base-ci
+  stage: base-ci
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -299,7 +289,9 @@ test-base-ci-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: arm64
@@ -316,7 +308,7 @@ test-base-ci-arm64:
 
 build-base-deployment-amd64:
   extends: .build-amd64
-  stage: build-base-deployment
+  stage: base-deployment
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -330,7 +322,9 @@ build-base-deployment-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: amd64
@@ -344,7 +338,7 @@ build-base-deployment-amd64:
 
 build-base-deployment-arm64:
   extends: .build-arm64
-  stage: build-base-deployment
+  stage: base-deployment
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -358,7 +352,9 @@ build-base-deployment-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: arm64
@@ -373,7 +369,7 @@ build-base-deployment-arm64:
 
 manifest-base-deployment:
   extends: .manifest
-  stage: manifest-base-deployment
+  stage: base-deployment
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -387,7 +383,9 @@ manifest-base-deployment:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-deployment
   needs:
@@ -399,7 +397,7 @@ manifest-base-deployment:
 
 test-base-deployment-amd64:
   extends: .test-amd64
-  stage: test-base-deployment
+  stage: base-deployment
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -413,7 +411,9 @@ test-base-deployment-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: amd64
@@ -428,7 +428,7 @@ test-base-deployment-amd64:
       junit: gitlab/dist/**/*-cst-report.xml
 test-base-deployment-arm64:
   extends: .test-arm64
-  stage: test-base-deployment
+  stage: base-deployment
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -442,7 +442,9 @@ test-base-deployment-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: arm64
@@ -459,7 +461,7 @@ test-base-deployment-arm64:
 
 build-chiseled-tools-amd64:
   extends: .build-amd64
-  stage: build-chiseled-tools
+  stage: chiseled-tools
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -473,7 +475,9 @@ build-chiseled-tools-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: amd64
@@ -487,7 +491,7 @@ build-chiseled-tools-amd64:
 
 build-chiseled-tools-arm64:
   extends: .build-arm64
-  stage: build-chiseled-tools
+  stage: chiseled-tools
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -501,7 +505,9 @@ build-chiseled-tools-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: arm64
@@ -516,7 +522,7 @@ build-chiseled-tools-arm64:
 
 manifest-chiseled-tools:
   extends: .manifest
-  stage: manifest-chiseled-tools
+  stage: chiseled-tools
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -530,7 +536,9 @@ manifest-chiseled-tools:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: chiseled-tools
   needs:
@@ -542,7 +550,7 @@ manifest-chiseled-tools:
 
 test-chiseled-tools-amd64:
   extends: .test-amd64
-  stage: test-chiseled-tools
+  stage: chiseled-tools
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -556,7 +564,9 @@ test-chiseled-tools-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: amd64
@@ -571,7 +581,7 @@ test-chiseled-tools-amd64:
       junit: gitlab/dist/**/*-cst-report.xml
 test-chiseled-tools-arm64:
   extends: .test-arm64
-  stage: test-chiseled-tools
+  stage: chiseled-tools
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -585,7 +595,9 @@ test-chiseled-tools-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: arm64
@@ -602,7 +614,7 @@ test-chiseled-tools-arm64:
 
 build-deterministic-zip-amd64:
   extends: .build-amd64
-  stage: build-deterministic-zip
+  stage: deterministic-zip
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -616,7 +628,9 @@ build-deterministic-zip-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: deterministic-zip
     PLATFORM: amd64
@@ -631,7 +645,7 @@ build-deterministic-zip-amd64:
 
 manifest-deterministic-zip:
   extends: .manifest
-  stage: manifest-deterministic-zip
+  stage: deterministic-zip
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -645,7 +659,9 @@ manifest-deterministic-zip:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: deterministic-zip
   needs:
@@ -655,7 +671,7 @@ manifest-deterministic-zip:
 
 test-deterministic-zip-amd64:
   extends: .test-amd64
-  stage: test-deterministic-zip
+  stage: deterministic-zip
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -669,7 +685,9 @@ test-deterministic-zip-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: deterministic-zip
     PLATFORM: amd64
@@ -686,7 +704,7 @@ test-deterministic-zip-amd64:
 
 build-golang-amd64:
   extends: .build-amd64
-  stage: build-golang
+  stage: golang
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -700,7 +718,9 @@ build-golang-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: golang
     PLATFORM: amd64
@@ -715,7 +735,7 @@ build-golang-amd64:
 
 manifest-golang:
   extends: .manifest
-  stage: manifest-golang
+  stage: golang
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -729,7 +749,9 @@ manifest-golang:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: golang
   needs:
@@ -739,7 +761,7 @@ manifest-golang:
 
 test-golang-amd64:
   extends: .test-amd64
-  stage: test-golang
+  stage: golang
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -753,7 +775,9 @@ test-golang-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: golang
     PLATFORM: amd64
@@ -770,7 +794,7 @@ test-golang-amd64:
 
 build-nixos-node-amd64:
   extends: .build-amd64
-  stage: build-nixos-node
+  stage: nixos-node
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -784,7 +808,9 @@ build-nixos-node-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: nixos-node
     PLATFORM: amd64
@@ -799,7 +825,7 @@ build-nixos-node-amd64:
 
 manifest-nixos-node:
   extends: .manifest
-  stage: manifest-nixos-node
+  stage: nixos-node
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -813,7 +839,9 @@ manifest-nixos-node:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: nixos-node
   needs:
@@ -823,7 +851,7 @@ manifest-nixos-node:
 
 test-nixos-node-amd64:
   extends: .test-amd64
-  stage: test-nixos-node
+  stage: nixos-node
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -837,7 +865,9 @@ test-nixos-node-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: nixos-node
     PLATFORM: amd64
@@ -854,7 +884,7 @@ test-nixos-node-amd64:
 
 build-node-amd64:
   extends: .build-amd64
-  stage: build-node
+  stage: node
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -868,7 +898,9 @@ build-node-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: node
     PLATFORM: amd64
@@ -883,7 +915,7 @@ build-node-amd64:
 
 manifest-node:
   extends: .manifest
-  stage: manifest-node
+  stage: node
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -897,7 +929,9 @@ manifest-node:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: node
   needs:
@@ -907,7 +941,7 @@ manifest-node:
 
 test-node-amd64:
   extends: .test-amd64
-  stage: test-node
+  stage: node
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -921,7 +955,9 @@ test-node-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: node
     PLATFORM: amd64
@@ -938,7 +974,7 @@ test-node-amd64:
 
 build-dotnet-runtime-amd64:
   extends: .build-amd64
-  stage: build-dotnet-runtime
+  stage: dotnet-runtime
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -953,7 +989,9 @@ build-dotnet-runtime-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: dotnet-runtime
     PLATFORM: amd64
@@ -971,7 +1009,7 @@ build-dotnet-runtime-amd64:
 
 manifest-dotnet-runtime:
   extends: .manifest
-  stage: manifest-dotnet-runtime
+  stage: dotnet-runtime
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -986,7 +1024,9 @@ manifest-dotnet-runtime:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: dotnet-runtime
   needs:
@@ -996,7 +1036,7 @@ manifest-dotnet-runtime:
 
 test-dotnet-runtime-amd64:
   extends: .test-amd64
-  stage: test-dotnet-runtime
+  stage: dotnet-runtime
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -1011,7 +1051,9 @@ test-dotnet-runtime-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: dotnet-runtime
     PLATFORM: amd64
@@ -1029,7 +1071,7 @@ test-dotnet-runtime-amd64:
 
 build-go-ci-amd64:
   extends: .build-amd64
-  stage: build-go-ci
+  stage: go-ci
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -1044,7 +1086,9 @@ build-go-ci-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: go-ci
     PLATFORM: amd64
@@ -1062,7 +1106,7 @@ build-go-ci-amd64:
 
 manifest-go-ci:
   extends: .manifest
-  stage: manifest-go-ci
+  stage: go-ci
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -1077,7 +1121,9 @@ manifest-go-ci:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: go-ci
   needs:
@@ -1087,7 +1133,7 @@ manifest-go-ci:
 
 test-go-ci-amd64:
   extends: .test-amd64
-  stage: test-go-ci
+  stage: go-ci
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
@@ -1102,7 +1148,9 @@ test-go-ci-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    - when: on_success
+    # Like jobs without rules, stay out of merge request pipelines, which
+    # have no generate job.
+    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
   variables:
     IMAGE_NAME: go-ci
     PLATFORM: amd64
@@ -1119,7 +1167,7 @@ test-go-ci-amd64:
 
 report:
   image:
-    name: ghcr.io/containerhive/containerhive:b12c66d
+    name: ghcr.io/containerhive/containerhive:0206629
     entrypoint: [""]
   stage: report
   cache:
