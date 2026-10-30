@@ -53,10 +53,10 @@ before_script:
 
 .build:
   image:
-    name: ghcr.io/containerhive/containerhive:35f8ecd
+    name: ghcr.io/containerhive/containerhive:b12c66d
     entrypoint: [""]
   services:
-    - name: moby/buildkit:v0.34.0
+    - name: ghcr.io/containerhive/helper-images/buildkit:v0.34
       alias: buildkitd
       command: ["--addr", "tcp://0.0.0.0:8372"]
   cache:
@@ -80,7 +80,7 @@ before_script:
 
 .manifest:
   image:
-    name: ghcr.io/containerhive/containerhive:35f8ecd
+    name: ghcr.io/containerhive/containerhive:b12c66d
     entrypoint: [""]
   cache:
     key: ch-versions
@@ -94,7 +94,7 @@ before_script:
 
 .test:
   image:
-    name: ghcr.io/containerhive/containerhive:35f8ecd
+    name: ghcr.io/containerhive/containerhive:b12c66d
     entrypoint: [""]
   services:
     - name: ghcr.io/containerhive/helper-images/dind-rootless:29.9
@@ -123,7 +123,7 @@ before_script:
 # === GENERATE ===
 generate:
   image:
-    name: ghcr.io/containerhive/containerhive:35f8ecd
+    name: ghcr.io/containerhive/containerhive:b12c66d
     entrypoint: [""]
   stage: generate
   cache:
@@ -133,8 +133,16 @@ generate:
     policy: pull-push
   variables:
     CONTAINER_HIVE_CACHE_DIR: gitlab/.ch-cache
+    # Change detection diffs against the default branch, which needs its
+    # history next to the pipeline commit.
+    GIT_DEPTH: "0"
+    GIT_FETCH_EXTRA_FLAGS: --prune --quiet +refs/heads/$CI_DEFAULT_BRANCH:refs/remotes/origin/$CI_DEFAULT_BRANCH
   script:
     - ch -p gitlab generate --build-id "$SNAPSHOT_ID"
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "push" ] && [ -n "$CI_COMMIT_BRANCH" ] && [ "$CI_COMMIT_BRANCH" != "$CI_DEFAULT_BRANCH" ]; then
+        ch -p gitlab changes --base "refs/remotes/origin/$CI_DEFAULT_BRANCH" --unmatched ignore --strict --write
+      fi
   artifacts:
     paths:
       - gitlab/dist/
@@ -145,7 +153,7 @@ lint:
   needs:
     - generate
   image:
-    name: ghcr.io/containerhive/containerhive:35f8ecd
+    name: ghcr.io/containerhive/containerhive:b12c66d
     entrypoint: [""]
   cache:
     key: ch-versions
@@ -166,6 +174,20 @@ lint:
 build-base-ci-amd64:
   extends: .build-amd64
   stage: build-base-ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: amd64
@@ -180,6 +202,20 @@ build-base-ci-amd64:
 build-base-ci-arm64:
   extends: .build-arm64
   stage: build-base-ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: arm64
@@ -195,6 +231,20 @@ build-base-ci-arm64:
 manifest-base-ci:
   extends: .manifest
   stage: manifest-base-ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
   needs:
@@ -207,6 +257,20 @@ manifest-base-ci:
 test-base-ci-amd64:
   extends: .test-amd64
   stage: test-base-ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: amd64
@@ -222,6 +286,20 @@ test-base-ci-amd64:
 test-base-ci-arm64:
   extends: .test-arm64
   stage: test-base-ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: arm64
@@ -239,6 +317,20 @@ test-base-ci-arm64:
 build-base-deployment-amd64:
   extends: .build-amd64
   stage: build-base-deployment
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: amd64
@@ -253,6 +345,20 @@ build-base-deployment-amd64:
 build-base-deployment-arm64:
   extends: .build-arm64
   stage: build-base-deployment
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: arm64
@@ -268,6 +374,20 @@ build-base-deployment-arm64:
 manifest-base-deployment:
   extends: .manifest
   stage: manifest-base-deployment
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
   needs:
@@ -280,6 +400,20 @@ manifest-base-deployment:
 test-base-deployment-amd64:
   extends: .test-amd64
   stage: test-base-deployment
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: amd64
@@ -295,6 +429,20 @@ test-base-deployment-amd64:
 test-base-deployment-arm64:
   extends: .test-arm64
   stage: test-base-deployment
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: arm64
@@ -312,6 +460,20 @@ test-base-deployment-arm64:
 build-chiseled-tools-amd64:
   extends: .build-amd64
   stage: build-chiseled-tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: amd64
@@ -326,6 +488,20 @@ build-chiseled-tools-amd64:
 build-chiseled-tools-arm64:
   extends: .build-arm64
   stage: build-chiseled-tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: arm64
@@ -341,6 +517,20 @@ build-chiseled-tools-arm64:
 manifest-chiseled-tools:
   extends: .manifest
   stage: manifest-chiseled-tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
   needs:
@@ -353,6 +543,20 @@ manifest-chiseled-tools:
 test-chiseled-tools-amd64:
   extends: .test-amd64
   stage: test-chiseled-tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: amd64
@@ -368,6 +572,20 @@ test-chiseled-tools-amd64:
 test-chiseled-tools-arm64:
   extends: .test-arm64
   stage: test-chiseled-tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: arm64
@@ -385,6 +603,20 @@ test-chiseled-tools-arm64:
 build-deterministic-zip-amd64:
   extends: .build-amd64
   stage: build-deterministic-zip
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/deterministic-zip/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: deterministic-zip
     PLATFORM: amd64
@@ -400,6 +632,20 @@ build-deterministic-zip-amd64:
 manifest-deterministic-zip:
   extends: .manifest
   stage: manifest-deterministic-zip
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/deterministic-zip/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: deterministic-zip
   needs:
@@ -410,6 +656,20 @@ manifest-deterministic-zip:
 test-deterministic-zip-amd64:
   extends: .test-amd64
   stage: test-deterministic-zip
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/deterministic-zip/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: deterministic-zip
     PLATFORM: amd64
@@ -427,6 +687,20 @@ test-deterministic-zip-amd64:
 build-golang-amd64:
   extends: .build-amd64
   stage: build-golang
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/golang/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: golang
     PLATFORM: amd64
@@ -442,6 +716,20 @@ build-golang-amd64:
 manifest-golang:
   extends: .manifest
   stage: manifest-golang
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/golang/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: golang
   needs:
@@ -452,6 +740,20 @@ manifest-golang:
 test-golang-amd64:
   extends: .test-amd64
   stage: test-golang
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/golang/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: golang
     PLATFORM: amd64
@@ -469,6 +771,20 @@ test-golang-amd64:
 build-nixos-node-amd64:
   extends: .build-amd64
   stage: build-nixos-node
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/nixos-node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: nixos-node
     PLATFORM: amd64
@@ -484,6 +800,20 @@ build-nixos-node-amd64:
 manifest-nixos-node:
   extends: .manifest
   stage: manifest-nixos-node
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/nixos-node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: nixos-node
   needs:
@@ -494,6 +824,20 @@ manifest-nixos-node:
 test-nixos-node-amd64:
   extends: .test-amd64
   stage: test-nixos-node
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/nixos-node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: nixos-node
     PLATFORM: amd64
@@ -511,6 +855,20 @@ test-nixos-node-amd64:
 build-node-amd64:
   extends: .build-amd64
   stage: build-node
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: node
     PLATFORM: amd64
@@ -526,6 +884,20 @@ build-node-amd64:
 manifest-node:
   extends: .manifest
   stage: manifest-node
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: node
   needs:
@@ -536,6 +908,20 @@ manifest-node:
 test-node-amd64:
   extends: .test-amd64
   stage: test-node
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: node
     PLATFORM: amd64
@@ -553,13 +939,29 @@ test-node-amd64:
 build-dotnet-runtime-amd64:
   extends: .build-amd64
   stage: build-dotnet-runtime
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "_base/images/dotnet-runtime/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: dotnet-runtime
     PLATFORM: amd64
   parallel: 2
   needs:
     - generate
-    - manifest-base-deployment
+    - job: manifest-base-deployment
+      optional: true
   artifacts:
     paths:
       - gitlab/dist/dotnet-runtime/*/*/cyclonedx.json
@@ -570,6 +972,21 @@ build-dotnet-runtime-amd64:
 manifest-dotnet-runtime:
   extends: .manifest
   stage: manifest-dotnet-runtime
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "_base/images/dotnet-runtime/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: dotnet-runtime
   needs:
@@ -580,6 +997,21 @@ manifest-dotnet-runtime:
 test-dotnet-runtime-amd64:
   extends: .test-amd64
   stage: test-dotnet-runtime
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "_base/images/dotnet-runtime/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: dotnet-runtime
     PLATFORM: amd64
@@ -598,13 +1030,29 @@ test-dotnet-runtime-amd64:
 build-go-ci-amd64:
   extends: .build-amd64
   stage: build-go-ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "_base/images/go-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: go-ci
     PLATFORM: amd64
   parallel: 2
   needs:
     - generate
-    - manifest-base-ci
+    - job: manifest-base-ci
+      optional: true
   artifacts:
     paths:
       - gitlab/dist/go-ci/*/*/cyclonedx.json
@@ -615,6 +1063,21 @@ build-go-ci-amd64:
 manifest-go-ci:
   extends: .manifest
   stage: manifest-go-ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "_base/images/go-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: go-ci
   needs:
@@ -625,6 +1088,21 @@ manifest-go-ci:
 test-go-ci-amd64:
   extends: .test-amd64
   stage: test-go-ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "_base/images/go-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+        compare_to: refs/heads/$CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - when: on_success
   variables:
     IMAGE_NAME: go-ci
     PLATFORM: amd64
@@ -641,7 +1119,7 @@ test-go-ci-amd64:
 
 report:
   image:
-    name: ghcr.io/containerhive/containerhive:35f8ecd
+    name: ghcr.io/containerhive/containerhive:b12c66d
     entrypoint: [""]
   stage: report
   cache:
@@ -653,18 +1131,30 @@ report:
     CONTAINER_HIVE_CACHE_DIR: gitlab/.ch-cache
   needs:
     - generate
-    - build-base-ci-amd64
-    - build-base-ci-arm64
-    - build-base-deployment-amd64
-    - build-base-deployment-arm64
-    - build-chiseled-tools-amd64
-    - build-chiseled-tools-arm64
-    - build-deterministic-zip-amd64
-    - build-golang-amd64
-    - build-nixos-node-amd64
-    - build-node-amd64
-    - build-dotnet-runtime-amd64
-    - build-go-ci-amd64
+    - job: build-base-ci-amd64
+      optional: true
+    - job: build-base-ci-arm64
+      optional: true
+    - job: build-base-deployment-amd64
+      optional: true
+    - job: build-base-deployment-arm64
+      optional: true
+    - job: build-chiseled-tools-amd64
+      optional: true
+    - job: build-chiseled-tools-arm64
+      optional: true
+    - job: build-deterministic-zip-amd64
+      optional: true
+    - job: build-golang-amd64
+      optional: true
+    - job: build-nixos-node-amd64
+      optional: true
+    - job: build-node-amd64
+      optional: true
+    - job: build-dotnet-runtime-amd64
+      optional: true
+    - job: build-go-ci-amd64
+      optional: true
   script:
     - ch -p gitlab report
     - ch -p gitlab report --json

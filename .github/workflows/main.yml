@@ -26,17 +26,20 @@ permissions:
 
 env:
   SNAPSHOT_ID: "${{ github.event.pull_request.number }}"
-  CH_IMAGE: ghcr.io/containerhive/containerhive:35f8ecd
+  CH_IMAGE: ghcr.io/containerhive/containerhive:b12c66d
 
 jobs:
   # === GENERATE ===
   generate:
     runs-on: ubuntu-latest
+    outputs:
+      affected: ${{ steps.changes.outputs.affected }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
         with:
           lfs: true
+          fetch-depth: 0
       - name: Prepare temp directory
         run: mkdir -p "$RUNNER_TEMP/ch"
       - name: Restore version cache
@@ -52,6 +55,15 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" $CH_IMAGE ch -p github login -u "${{ github.actor }}" --password-stdin ghcr.io
       - name: Generate build files
         run: docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -e CONTAINER_HIVE_CACHE_DIR="$GITHUB_WORKSPACE/github/.ch-cache" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" $CH_IMAGE ch -p github generate --build-id "$SNAPSHOT_ID"
+      - name: Detect changed images
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "affected=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" $CH_IMAGE ch -p github changes --base "${{ github.event.pull_request.base.sha }}" --format json --write > "$RUNNER_TEMP/ch/changes.json"
+          echo "affected=$(jq -c .affected "$RUNNER_TEMP/ch/changes.json")" >> "$GITHUB_OUTPUT"
       - name: Upload generated files
         uses: actions/upload-artifact@v7.0.2
         with:
@@ -80,6 +92,9 @@ jobs:
 
   build-base-ci-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'base-ci')) }}
     needs:
       - generate
       - lint
@@ -105,7 +120,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -125,6 +140,9 @@ jobs:
 
   build-base-ci-arm64:
     runs-on: ubuntu-24.04-arm
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'base-ci')) }}
     needs:
       - generate
       - lint
@@ -150,7 +168,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -228,7 +246,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -275,7 +293,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -300,6 +318,9 @@ jobs:
 
   build-base-deployment-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'base-deployment')) }}
     needs:
       - generate
       - lint
@@ -325,7 +346,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -345,6 +366,9 @@ jobs:
 
   build-base-deployment-arm64:
     runs-on: ubuntu-24.04-arm
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'base-deployment')) }}
     needs:
       - generate
       - lint
@@ -370,7 +394,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -448,7 +472,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -495,7 +519,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -520,6 +544,9 @@ jobs:
 
   build-chiseled-tools-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'chiseled-tools')) }}
     needs:
       - generate
       - lint
@@ -545,7 +572,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -565,6 +592,9 @@ jobs:
 
   build-chiseled-tools-arm64:
     runs-on: ubuntu-24.04-arm
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'chiseled-tools')) }}
     needs:
       - generate
       - lint
@@ -590,7 +620,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -668,7 +698,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -715,7 +745,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -740,6 +770,9 @@ jobs:
 
   build-deterministic-zip-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'deterministic-zip')) }}
     needs:
       - generate
       - lint
@@ -765,7 +798,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -841,7 +874,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -866,6 +899,9 @@ jobs:
 
   build-golang-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'golang')) }}
     needs:
       - generate
       - lint
@@ -891,7 +927,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -967,7 +1003,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -992,6 +1028,9 @@ jobs:
 
   build-nixos-node-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'nixos-node')) }}
     needs:
       - generate
       - lint
@@ -1017,7 +1056,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -1093,7 +1132,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -1118,6 +1157,9 @@ jobs:
 
   build-node-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'node')) }}
     needs:
       - generate
       - lint
@@ -1143,7 +1185,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -1219,7 +1261,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -1244,6 +1286,9 @@ jobs:
 
   build-dotnet-runtime-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'dotnet-runtime')) }}
     needs:
       - generate
       - lint
@@ -1270,7 +1315,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -1346,7 +1391,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -1371,6 +1416,9 @@ jobs:
 
   build-go-ci-amd64:
     runs-on: ubuntu-24.04
+    # Pull requests only build affected images. A skipped dependency must
+    # not skip its dependents, hence the explicit status checks.
+    if: ${{ !cancelled() && !failure() && (github.event_name != 'pull_request' || contains(fromJSON(needs.generate.outputs.affected), 'go-ci')) }}
     needs:
       - generate
       - lint
@@ -1397,7 +1445,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start BuildKit daemon
-        run: docker run -d --name buildkitd --privileged --network ch-net moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:8372
+        run: docker run -d --name buildkitd --privileged --network ch-net ghcr.io/containerhive/helper-images/buildkit:v0.34 --addr tcp://0.0.0.0:8372
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e BUILDKIT_HOST=tcp://buildkitd:8372 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -1473,7 +1521,7 @@ jobs:
       - name: Create Docker network
         run: docker network create ch-net
       - name: Start Docker-in-Docker
-        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind-rootless:29.9 dockerd --host=tcp://0.0.0.0:2375
+        run: docker run -d --name dind --privileged --network ch-net -e DOCKER_TLS_CERTDIR="" ghcr.io/containerhive/helper-images/dind:29.9 dockerd --host=tcp://0.0.0.0:2375
       - name: Login to registry
         run: echo "${{ secrets.CONTAINER_HIVE_REGISTRY_PASSWORD }}" | docker run --rm --entrypoint="" -u "$(id -u):$(id -g)" -e CI=1 -i -e HOME="$RUNNER_TEMP/ch" -v "$RUNNER_TEMP/ch:$RUNNER_TEMP/ch" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" --network ch-net -e DOCKER_HOST=tcp://dind:2375 $CH_IMAGE ch -p github login -u "${{ secrets.CONTAINER_HIVE_REGISTRY_USERNAME }}" --password-stdin "ghcr.io"
       - name: Login to GHCR
@@ -1495,6 +1543,8 @@ jobs:
           updateComment: 'true'
           include_passed: 'true'
   report:
+    # Builds of unaffected images are skipped, which must not skip the report.
+    if: ${{ !cancelled() && !failure() }}
     needs:
       - build-base-ci-amd64
       - build-base-ci-arm64
@@ -1521,61 +1571,85 @@ jobs:
           path: github/dist/
       - name: Download base-ci-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: base-ci-amd64-sbom
           path: github/dist/
       - name: Download base-ci-arm64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: base-ci-arm64-sbom
           path: github/dist/
       - name: Download base-deployment-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: base-deployment-amd64-sbom
           path: github/dist/
       - name: Download base-deployment-arm64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: base-deployment-arm64-sbom
           path: github/dist/
       - name: Download chiseled-tools-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: chiseled-tools-amd64-sbom
           path: github/dist/
       - name: Download chiseled-tools-arm64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: chiseled-tools-arm64-sbom
           path: github/dist/
       - name: Download deterministic-zip-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: deterministic-zip-amd64-sbom
           path: github/dist/
       - name: Download golang-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: golang-amd64-sbom
           path: github/dist/
       - name: Download nixos-node-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: nixos-node-amd64-sbom
           path: github/dist/
       - name: Download node-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: node-amd64-sbom
           path: github/dist/
       - name: Download dotnet-runtime-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: dotnet-runtime-amd64-sbom
           path: github/dist/
       - name: Download go-ci-amd64 SBOM
         uses: actions/download-artifact@v8.0.2
+        # Missing when change detection skipped the build.
+        continue-on-error: true
         with:
           name: go-ci-amd64-sbom
           path: github/dist/
