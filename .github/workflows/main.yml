@@ -26,7 +26,7 @@ permissions:
 
 env:
   SNAPSHOT_ID: "${{ github.event.pull_request.number }}"
-  CH_IMAGE: ghcr.io/containerhive/containerhive:b12c66d
+  CH_IMAGE: ghcr.io/containerhive/containerhive:0206629
 
 jobs:
   # === GENERATE ===
@@ -194,6 +194,9 @@ jobs:
       - build-base-ci-amd64
       - test-base-ci-arm64
       - build-base-ci-arm64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-base-ci-amd64'].result == 'success' && needs['test-base-ci-arm64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -224,6 +227,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-base-ci-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-base-ci-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -271,6 +277,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs:
       - build-base-ci-arm64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-base-ci-arm64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -420,6 +429,9 @@ jobs:
       - build-base-deployment-amd64
       - test-base-deployment-arm64
       - build-base-deployment-arm64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-base-deployment-amd64'].result == 'success' && needs['test-base-deployment-arm64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -450,6 +462,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-base-deployment-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-base-deployment-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -497,6 +512,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs:
       - build-base-deployment-arm64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-base-deployment-arm64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -646,6 +664,9 @@ jobs:
       - build-chiseled-tools-amd64
       - test-chiseled-tools-arm64
       - build-chiseled-tools-arm64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-chiseled-tools-amd64'].result == 'success' && needs['test-chiseled-tools-arm64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -676,6 +697,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-chiseled-tools-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-chiseled-tools-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -723,6 +747,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs:
       - build-chiseled-tools-arm64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-chiseled-tools-arm64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -822,6 +849,9 @@ jobs:
     needs:
       - test-deterministic-zip-amd64
       - build-deterministic-zip-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-deterministic-zip-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -852,6 +882,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-deterministic-zip-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-deterministic-zip-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -951,6 +984,9 @@ jobs:
     needs:
       - test-golang-amd64
       - build-golang-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-golang-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -981,6 +1017,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-golang-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-golang-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -1080,6 +1119,9 @@ jobs:
     needs:
       - test-nixos-node-amd64
       - build-nixos-node-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-nixos-node-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -1110,6 +1152,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-nixos-node-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-nixos-node-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -1209,6 +1254,9 @@ jobs:
     needs:
       - test-node-amd64
       - build-node-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-node-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -1239,6 +1287,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-node-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-node-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -1339,6 +1390,9 @@ jobs:
     needs:
       - test-dotnet-runtime-amd64
       - build-dotnet-runtime-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-dotnet-runtime-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -1369,6 +1423,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-dotnet-runtime-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-dotnet-runtime-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -1469,6 +1526,9 @@ jobs:
     needs:
       - test-go-ci-amd64
       - build-go-ci-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's tests.
+    if: ${{ !cancelled() && !failure() && needs['test-go-ci-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -1499,6 +1559,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-go-ci-amd64
+    # The implicit success() also fails for skipped jobs further upstream,
+    # such as an unaffected dependency, so check this image's build.
+    if: ${{ !cancelled() && !failure() && needs['build-go-ci-amd64'].result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
