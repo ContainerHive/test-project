@@ -35,7 +35,7 @@ before_script:
 
 .build:
   image:
-    name: ghcr.io/containerhive/containerhive:0206629
+    name: ghcr.io/containerhive/containerhive:e709e78
     entrypoint: [""]
   services:
     - name: ghcr.io/containerhive/helper-images/buildkit:v0.34
@@ -62,7 +62,7 @@ before_script:
 
 .manifest:
   image:
-    name: ghcr.io/containerhive/containerhive:0206629
+    name: ghcr.io/containerhive/containerhive:e709e78
     entrypoint: [""]
   cache:
     key: ch-versions
@@ -76,10 +76,10 @@ before_script:
 
 .test:
   image:
-    name: ghcr.io/containerhive/containerhive:0206629
+    name: ghcr.io/containerhive/containerhive:e709e78
     entrypoint: [""]
   services:
-    - name: ghcr.io/containerhive/helper-images/dind-rootless:29.9
+    - name: ghcr.io/containerhive/helper-images/dind:29.9
       alias: dind
       command: ["dockerd", "--host=tcp://0.0.0.0:2375"]
   cache:
@@ -105,9 +105,13 @@ before_script:
 # === GENERATE ===
 generate:
   image:
-    name: ghcr.io/containerhive/containerhive:0206629
+    name: ghcr.io/containerhive/containerhive:e709e78
     entrypoint: [""]
   stage: generate
+  # Image jobs have rules for merge request pipelines, so these jobs need
+  # rules too to join them in projects without workflow:rules.
+  rules:
+    - when: on_success
   cache:
     key: ch-versions
     paths:
@@ -115,14 +119,16 @@ generate:
     policy: pull-push
   variables:
     CONTAINER_HIVE_CACHE_DIR: gitlab/.ch-cache
-    # Change detection diffs against the default branch, which needs its
-    # history next to the pipeline commit.
+    # Change detection diffs against the merge base with the target or
+    # default branch, which needs the full history and the default branch.
     GIT_DEPTH: "0"
     GIT_FETCH_EXTRA_FLAGS: --prune --quiet +refs/heads/$CI_DEFAULT_BRANCH:refs/remotes/origin/$CI_DEFAULT_BRANCH
   script:
     - ch -p gitlab generate --build-id "$SNAPSHOT_ID"
     - |
-      if [ "$CI_PIPELINE_SOURCE" = "push" ] && [ -n "$CI_COMMIT_BRANCH" ] && [ "$CI_COMMIT_BRANCH" != "$CI_DEFAULT_BRANCH" ]; then
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        ch -p gitlab changes --base "$CI_MERGE_REQUEST_DIFF_BASE_SHA" --unmatched ignore --strict --write
+      elif [ "$CI_PIPELINE_SOURCE" = "push" ] && [ -n "$CI_COMMIT_BRANCH" ] && [ "$CI_COMMIT_BRANCH" != "$CI_DEFAULT_BRANCH" ]; then
         ch -p gitlab changes --base "refs/remotes/origin/$CI_DEFAULT_BRANCH" --unmatched ignore --strict --write
       fi
   artifacts:
@@ -132,10 +138,14 @@ generate:
 
 lint:
   stage: lint
+  # Image jobs have rules for merge request pipelines, so these jobs need
+  # rules too to join them in projects without workflow:rules.
+  rules:
+    - when: on_success
   needs:
     - generate
   image:
-    name: ghcr.io/containerhive/containerhive:0206629
+    name: ghcr.io/containerhive/containerhive:e709e78
     entrypoint: [""]
   cache:
     key: ch-versions
@@ -157,6 +167,19 @@ build-base-ci-amd64:
   extends: .build-amd64
   stage: base-ci
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -169,9 +192,7 @@ build-base-ci-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: amd64
@@ -187,6 +208,19 @@ build-base-ci-arm64:
   extends: .build-arm64
   stage: base-ci
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -199,9 +233,7 @@ build-base-ci-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: arm64
@@ -218,6 +250,19 @@ manifest-base-ci:
   extends: .manifest
   stage: base-ci
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -230,9 +275,7 @@ manifest-base-ci:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
   needs:
@@ -246,6 +289,19 @@ test-base-ci-amd64:
   extends: .test-amd64
   stage: base-ci
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -258,9 +314,7 @@ test-base-ci-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: amd64
@@ -277,6 +331,19 @@ test-base-ci-arm64:
   extends: .test-arm64
   stage: base-ci
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -289,9 +356,7 @@ test-base-ci-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-ci
     PLATFORM: arm64
@@ -310,6 +375,19 @@ build-base-deployment-amd64:
   extends: .build-amd64
   stage: base-deployment
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -322,9 +400,7 @@ build-base-deployment-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: amd64
@@ -340,6 +416,19 @@ build-base-deployment-arm64:
   extends: .build-arm64
   stage: base-deployment
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -352,9 +441,7 @@ build-base-deployment-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: arm64
@@ -371,6 +458,19 @@ manifest-base-deployment:
   extends: .manifest
   stage: base-deployment
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -383,9 +483,7 @@ manifest-base-deployment:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
   needs:
@@ -399,6 +497,19 @@ test-base-deployment-amd64:
   extends: .test-amd64
   stage: base-deployment
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -411,9 +522,7 @@ test-base-deployment-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: amd64
@@ -430,6 +539,19 @@ test-base-deployment-arm64:
   extends: .test-arm64
   stage: base-deployment
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -442,9 +564,7 @@ test-base-deployment-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: base-deployment
     PLATFORM: arm64
@@ -463,6 +583,19 @@ build-chiseled-tools-amd64:
   extends: .build-amd64
   stage: chiseled-tools
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -475,9 +608,7 @@ build-chiseled-tools-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: amd64
@@ -493,6 +624,19 @@ build-chiseled-tools-arm64:
   extends: .build-arm64
   stage: chiseled-tools
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -505,9 +649,7 @@ build-chiseled-tools-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: arm64
@@ -524,6 +666,19 @@ manifest-chiseled-tools:
   extends: .manifest
   stage: chiseled-tools
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -536,9 +691,7 @@ manifest-chiseled-tools:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
   needs:
@@ -552,6 +705,19 @@ test-chiseled-tools-amd64:
   extends: .test-amd64
   stage: chiseled-tools
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -564,9 +730,7 @@ test-chiseled-tools-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: amd64
@@ -583,6 +747,19 @@ test-chiseled-tools-arm64:
   extends: .test-arm64
   stage: chiseled-tools
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/chiseled-tools/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -595,9 +772,7 @@ test-chiseled-tools-arm64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: chiseled-tools
     PLATFORM: arm64
@@ -616,6 +791,19 @@ build-deterministic-zip-amd64:
   extends: .build-amd64
   stage: deterministic-zip
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/deterministic-zip/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -628,9 +816,7 @@ build-deterministic-zip-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: deterministic-zip
     PLATFORM: amd64
@@ -647,6 +833,19 @@ manifest-deterministic-zip:
   extends: .manifest
   stage: deterministic-zip
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/deterministic-zip/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -659,9 +858,7 @@ manifest-deterministic-zip:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: deterministic-zip
   needs:
@@ -673,6 +870,19 @@ test-deterministic-zip-amd64:
   extends: .test-amd64
   stage: deterministic-zip
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/deterministic-zip/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -685,9 +895,7 @@ test-deterministic-zip-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: deterministic-zip
     PLATFORM: amd64
@@ -706,6 +914,19 @@ build-golang-amd64:
   extends: .build-amd64
   stage: golang
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/golang/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -718,9 +939,7 @@ build-golang-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: golang
     PLATFORM: amd64
@@ -737,6 +956,19 @@ manifest-golang:
   extends: .manifest
   stage: golang
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/golang/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -749,9 +981,7 @@ manifest-golang:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: golang
   needs:
@@ -763,6 +993,19 @@ test-golang-amd64:
   extends: .test-amd64
   stage: golang
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/golang/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -775,9 +1018,7 @@ test-golang-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: golang
     PLATFORM: amd64
@@ -796,6 +1037,19 @@ build-nixos-node-amd64:
   extends: .build-amd64
   stage: nixos-node
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/nixos-node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -808,9 +1062,7 @@ build-nixos-node-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: nixos-node
     PLATFORM: amd64
@@ -827,6 +1079,19 @@ manifest-nixos-node:
   extends: .manifest
   stage: nixos-node
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/nixos-node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -839,9 +1104,7 @@ manifest-nixos-node:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: nixos-node
   needs:
@@ -853,6 +1116,19 @@ test-nixos-node-amd64:
   extends: .test-amd64
   stage: nixos-node
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/nixos-node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -865,9 +1141,7 @@ test-nixos-node-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: nixos-node
     PLATFORM: amd64
@@ -886,6 +1160,19 @@ build-node-amd64:
   extends: .build-amd64
   stage: node
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -898,9 +1185,7 @@ build-node-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: node
     PLATFORM: amd64
@@ -917,6 +1202,19 @@ manifest-node:
   extends: .manifest
   stage: node
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -929,9 +1227,7 @@ manifest-node:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: node
   needs:
@@ -943,6 +1239,19 @@ test-node-amd64:
   extends: .test-amd64
   stage: node
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/node/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -955,9 +1264,7 @@ test-node-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: node
     PLATFORM: amd64
@@ -976,6 +1283,20 @@ build-dotnet-runtime-amd64:
   extends: .build-amd64
   stage: dotnet-runtime
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "_base/images/dotnet-runtime/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -989,9 +1310,7 @@ build-dotnet-runtime-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: dotnet-runtime
     PLATFORM: amd64
@@ -1011,6 +1330,20 @@ manifest-dotnet-runtime:
   extends: .manifest
   stage: dotnet-runtime
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "_base/images/dotnet-runtime/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1024,9 +1357,7 @@ manifest-dotnet-runtime:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: dotnet-runtime
   needs:
@@ -1038,6 +1369,20 @@ test-dotnet-runtime-amd64:
   extends: .test-amd64
   stage: dotnet-runtime
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-deployment/**/*"
+          - "_base/images/dotnet-runtime/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1051,9 +1396,7 @@ test-dotnet-runtime-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: dotnet-runtime
     PLATFORM: amd64
@@ -1073,6 +1416,20 @@ build-go-ci-amd64:
   extends: .build-amd64
   stage: go-ci
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "_base/images/go-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1086,9 +1443,7 @@ build-go-ci-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: go-ci
     PLATFORM: amd64
@@ -1108,6 +1463,20 @@ manifest-go-ci:
   extends: .manifest
   stage: go-ci
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "_base/images/go-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1121,9 +1490,7 @@ manifest-go-ci:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: go-ci
   needs:
@@ -1135,6 +1502,20 @@ test-go-ci-amd64:
   extends: .test-amd64
   stage: go-ci
   rules:
+    # Merge request pipelines compare with the target branch.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - "_base/images/base-ci/**/*"
+          - "_base/images/go-ci/**/*"
+          - "gitlab/.pre-commit-config.yaml"
+          - "gitlab/hive.yml"
+          - "gitlab/hive.yaml"
+          - "gitlab/container-hive.yml"
+          - "gitlab/container-hive.yaml"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    # Branch pipelines of other branches compare with the default branch.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       changes:
         paths:
@@ -1148,9 +1529,7 @@ test-go-ci-amd64:
         compare_to: refs/heads/$CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: never
-    # Like jobs without rules, stay out of merge request pipelines, which
-    # have no generate job.
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: on_success
   variables:
     IMAGE_NAME: go-ci
     PLATFORM: amd64
@@ -1167,9 +1546,13 @@ test-go-ci-amd64:
 
 report:
   image:
-    name: ghcr.io/containerhive/containerhive:0206629
+    name: ghcr.io/containerhive/containerhive:e709e78
     entrypoint: [""]
   stage: report
+  # Image jobs have rules for merge request pipelines, so these jobs need
+  # rules too to join them in projects without workflow:rules.
+  rules:
+    - when: on_success
   cache:
     key: ch-versions
     paths:
